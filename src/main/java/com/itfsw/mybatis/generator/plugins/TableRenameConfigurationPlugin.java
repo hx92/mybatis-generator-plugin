@@ -117,6 +117,17 @@ public class TableRenameConfigurationPlugin extends BasePlugin implements ITable
                 rule.setReplaceString(this.tableReplaceString);
                 tableConfiguration.setDomainObjectRenamingRule(rule);
                 BeanUtils.setProperty(introspectedTable.getFullyQualifiedTable(), "domainObjectRenamingRule", rule);
+                // 重新初始化一下属性
+                BeanUtils.invoke(introspectedTable, IntrospectedTable.class, "calculateJavaClientAttributes");
+                BeanUtils.invoke(introspectedTable, IntrospectedTable.class, "calculateModelAttributes");
+                BeanUtils.invoke(introspectedTable, IntrospectedTable.class, "calculateXmlAttributes");
+              }
+              // TODO 官方bug临时修复
+              if (tableConfiguration.getDomainObjectRenamingRule() != null) {
+                final String domainObjectName1 = getDomainObjectName(fullyQualifiedTable, tableConfiguration.getDomainObjectRenamingRule());
+                // 首字母大写
+                BeanUtils.setProperty(fullyQualifiedTable, "domainObjectName", domainObjectName1);
+
 
                 // 重新初始化一下属性
                 BeanUtils.invoke(introspectedTable, IntrospectedTable.class, "calculateJavaClientAttributes");
@@ -210,7 +221,19 @@ public class TableRenameConfigurationPlugin extends BasePlugin implements ITable
             e.printStackTrace();
         }
     }
+    
+    String getDomainObjectName(FullyQualifiedTable fullyQualifiedTable, DomainObjectRenamingRule domainObjectRenamingRule) {
+        String finalDomainObjectName = getCamelCaseString(fullyQualifiedTable.getIntrospectedTableName(), true);
 
+        if (domainObjectRenamingRule != null) {
+          Pattern pattern = Pattern.compile(domainObjectRenamingRule.getSearchString());
+          String replaceString = domainObjectRenamingRule.getReplaceString();
+          replaceString = replaceString == null ? "" : replaceString; //$NON-NLS-1$
+          Matcher matcher = pattern.matcher(fullyQualifiedTable.getIntrospectedTableName());
+          finalDomainObjectName = getCamelCaseString(matcher.replaceAll(replaceString), true);
+        }
+        return finalDomainObjectName;
+    }
     /**
      * column rename
      * @param columns
@@ -223,6 +246,17 @@ public class TableRenameConfigurationPlugin extends BasePlugin implements ITable
         replaceString = replaceString == null ? "" : replaceString;
 
         for (IntrospectedColumn introspectedColumn : columns) {
+            if (introspectedColumn.getJdbcTypeName().equals("NUMERIC")) {
+                introspectedColumn.setJdbcTypeName("DOUBLE");
+                introspectedColumn.setJdbcType(Types.DOUBLE);
+                try {
+                  BeanUtils.setProperty(introspectedColumn.getFullyQualifiedJavaType(), "baseShortName", "Double");
+                  BeanUtils.setProperty(introspectedColumn.getFullyQualifiedJavaType(), "baseQualifiedName", "java.lang.Double");
+                  BeanUtils.setProperty(introspectedColumn.getFullyQualifiedJavaType(), "packageName", "java.lang");
+                } catch (Exception e) {
+                  logger.error("", e);
+                }
+            }
             String calculatedColumnName;
             if (pattern == null) {
                 calculatedColumnName = introspectedColumn.getActualColumnName();
