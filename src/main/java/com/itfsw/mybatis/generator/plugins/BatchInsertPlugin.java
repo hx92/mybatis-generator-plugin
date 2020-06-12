@@ -40,6 +40,7 @@ import java.util.Properties;
 public class BatchInsertPlugin extends BasePlugin {
     public static final String METHOD_BATCH_INSERT = "batchInsert";  // 方法名
     public static final String METHOD_BATCH_INSERT_SELECTIVE = "batchInsertSelective";  // 方法名
+    public static final String USE_GENERATED_KEYS_IN_BATCH_INSERT = "useGeneratedKeysInBatchInsert";  // batchInsert中是否返回ID
     public static final String PRO_ALLOW_MULTI_QUERIES = "allowMultiQueries";   // property allowMultiQueries
     private boolean allowMultiQueries = false;  // 是否允许多sql提交
 
@@ -138,7 +139,9 @@ public class BatchInsertPlugin extends BasePlugin {
         commentGenerator.addComment(batchInsertEle);
 
         // 使用JDBC的getGenereatedKeys方法获取主键并赋值到keyProperty设置的领域模型属性中。所以只支持MYSQL和SQLServer
-        XmlElementGeneratorTools.useGeneratedKeys(batchInsertEle, introspectedTable);
+        if ("true".equalsIgnoreCase(context.getProperty(USE_GENERATED_KEYS_IN_BATCH_INSERT))) {
+            XmlElementGeneratorTools.useGeneratedKeys(batchInsertEle, introspectedTable);
+        }
 
         batchInsertEle.addElement(new TextElement("insert into " + introspectedTable.getFullyQualifiedTableNameAtRuntime()));
         for (Element element : XmlElementGeneratorTools.generateKeys(ListUtilities.removeIdentityAndGeneratedAlwaysColumns(introspectedTable.getAllColumns()), true)) {
@@ -172,8 +175,9 @@ public class BatchInsertPlugin extends BasePlugin {
 
         // 使用JDBC的getGenereatedKeys方法获取主键并赋值到keyProperty设置的领域模型属性中。所以只支持MYSQL和SQLServer
         // issues#70 mybatis 版本升级到3.5.0之后，useGeneratedKeys在配置keyProperty时需要指定前缀
-        XmlElementGeneratorTools.useGeneratedKeys(batchInsertSelectiveEle, introspectedTable, PluginTools.compareVersion(mybatisVersion, "3.5.0") >= 0 ? "list." : null);
-
+        if ("true".equalsIgnoreCase(context.getProperty(USE_GENERATED_KEYS_IN_BATCH_INSERT))) {
+            XmlElementGeneratorTools.useGeneratedKeys(batchInsertSelectiveEle, introspectedTable, PluginTools.compareVersion(mybatisVersion, "3.5.0") >= 0 ? "list." : null);
+        }
         // 支持原生字段非空判断
         if (this.allowMultiQueries) {
             XmlElement chooseEle = new XmlElement("choose");
